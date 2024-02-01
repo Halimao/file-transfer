@@ -79,7 +79,7 @@ func NewNode(dirPath string, opts ...Option) (*Node, error) {
 	peerChan := make(chan peer.AddrInfo, 100)
 	lOpts := []libp2p.Option{
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/udp/%s/quic-v1", cfg.port)),
-		libp2p.EnableAutoRelayWithPeerSource(
+		/* libp2p.EnableAutoRelayWithPeerSource(
 			func(ctx context.Context, num int) <-chan peer.AddrInfo {
 				ch := make(chan peer.AddrInfo, num)
 
@@ -100,7 +100,8 @@ func NewNode(dirPath string, opts ...Option) (*Node, error) {
 				}()
 				return ch
 			},
-		),
+		), */
+		libp2p.DisableRelay(),
 		libp2p.EnableHolePunching(),
 	}
 
@@ -172,6 +173,7 @@ func (n *Node) Close() {
 func (n *Node) FileNames() ([]string, error) {
 	entries, err := os.ReadDir(n.dirPath)
 	if err != nil {
+		log.Println("read dir failed", err)
 		return nil, fmt.Errorf("read dir failed: %w", err)
 	}
 	files := make([]string, 0, len(entries))
@@ -181,6 +183,7 @@ func (n *Node) FileNames() ([]string, error) {
 		}
 	}
 	sort.Strings(files)
+	log.Println(files)
 	return files, nil
 }
 
@@ -217,6 +220,7 @@ func (n *Node) GetFileList(ai peer.AddrInfo) []string {
 	if err := json.NewDecoder(s).Decode(&ss); err != nil {
 		log.Printf("error reading file list %s: %s\n", ai, err)
 	}
+	log.Println("fetch file list", ss)
 	return ss
 }
 
@@ -260,17 +264,21 @@ func (n *Node) GetFile(ai peer.AddrInfo, file string) []byte {
 		return nil
 	}
 
+	log.Println("get file", file)
+
 	b, err := json.Marshal(file)
 	if err != nil {
 		s.Reset()
 		return nil
 	}
 	b = append(b, byte('\n'))
+	// send the file name to be get
 	if _, err := s.Write(b); err != nil {
 		s.Reset()
 		return nil
 	}
 
+	// read file data from stream
 	res, err := io.ReadAll(s)
 	if err != nil {
 		return nil

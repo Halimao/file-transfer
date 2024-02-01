@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
 	"strings"
 
 	file_transfer "github.com/Halimao/file-transfer"
@@ -38,6 +39,7 @@ func main() {
 		log.Print(err)
 		return
 	}
+	log.Println("serve with peer id", n.ID(), "addr", n.Addrs())
 OUTER:
 	for {
 		r := bufio.NewScanner(os.Stdin)
@@ -60,7 +62,13 @@ OUTER:
 					continue OUTER
 				}
 				addr := ma.StringCast(words[3])
-				fmt.Println(string(n.GetFile(peer.AddrInfo{ID: id, Addrs: []ma.Multiaddr{addr}}, words[1])))
+				data := n.GetFile(peer.AddrInfo{ID: id, Addrs: []ma.Multiaddr{addr}}, words[1])
+				fmt.Println(string(data))
+				err = os.WriteFile(path.Join(*dirPath, words[1]), data, 0644)
+				if err != nil {
+					fmt.Println(err)
+					continue OUTER
+				}
 			case "addrs":
 				fmt.Println(n.ID())
 				for _, addr := range n.Addrs() {
